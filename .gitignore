@@ -1,0 +1,8 @@
+faiss_cvs/
+cvs/
+chroma_cvs/
+__pycache__/
+*.exe
+*.lnk
+*.url
+desktop.ini
