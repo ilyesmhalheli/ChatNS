@@ -1,0 +1,7 @@
+__pycache__/  
+*.faiss  
+*.pkl  
+cache_questions.json  
+faiss_documents/  
+documents/  
+.env 

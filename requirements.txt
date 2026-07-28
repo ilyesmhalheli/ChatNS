@@ -1,0 +1,10 @@
+streamlit
+python-dotenv
+pdfplumber
+langchain-text-splitters
+langchain-community
+langchain-core
+langchain-classic
+ollama
+numpy
+faiss-cpu
