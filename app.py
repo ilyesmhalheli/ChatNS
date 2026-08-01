@@ -6,6 +6,10 @@ Point d'entree Streamlit. Lancer avec :
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 import shutil
+import time
+from pathlib import Path
+import html
+from string import Template
 
 import streamlit as st
 
@@ -17,14 +21,35 @@ from ollama_utils import verifier_ollama
 from vectorstore import compter_pdf, charger_vecteur, ajouter_pdf
 from chain import creer_chaine, get_chunks_adaptatifs
 from cache_questions import CacheQuestions
-from ui_styles import CSS, HEADER
+from ui_styles import CSS
+from debug_utils import etape, logger, horodatage
 
 cache = CacheQuestions()
+TEMPLATE_PATH = Path(__file__).resolve().parent / "templates" / "ui_templates.html"
+
+
+def charger_bloc_html(nom):
+    contenu = TEMPLATE_PATH.read_text(encoding="utf-8")
+    debut = f"<!-- BEGIN {nom} -->"
+    fin = f"<!-- END {nom} -->"
+    if debut not in contenu or fin not in contenu:
+        raise ValueError(f"Bloc HTML introuvable : {nom}")
+    bloc = contenu.split(debut, 1)[1].split(fin, 1)[0].strip()
+    return Template(bloc)
+
+
+def rendre_html(nom, **variables):
+    bloc = charger_bloc_html(nom)
+    valeurs = {
+        cle: html.escape(str(valeur), quote=True) if isinstance(valeur, str) else valeur
+        for cle, valeur in variables.items()
+    }
+    return bloc.safe_substitute(valeurs)
 
 # --- Configuration de la page ---
 st.set_page_config(page_title="Chat GCT", page_icon="factory", layout="wide")
 st.markdown(CSS, unsafe_allow_html=True)
-st.markdown(HEADER, unsafe_allow_html=True)
+st.markdown(rendre_html("header"), unsafe_allow_html=True)
 
 # --- Verification Ollama ---
 ollama_ok, ollama_err = verifier_ollama()
@@ -81,7 +106,7 @@ with col1:
     st.caption(f"Dossier : {os.path.join(DOSSIER_BASE, TOPICS[topic]['dossier'])}")
 
 with col2:
-    st.markdown("### Ajouter un PDF")
+    st.markdown('<div class="section-title section-title-upload">Ajouter un PDF</div>', unsafe_allow_html=True)
     pdf = st.file_uploader("Upload PDF", type="pdf", label_visibility="collapsed", key="pdf_uploader")
 
     if pdf is not None:
@@ -133,49 +158,58 @@ question = st.text_input(
 envoyer = st.button("Envoyer")
 
 if envoyer:
+    debut_total = time.perf_counter()
+    debut_total_h = horodatage()
+    logger.info("#" * 60)
+    logger.info(f"NOUVELLE QUESTION recue : '{question}' (topic={topic})")
     if not question:
         st.warning("Veuillez entrer une question.")
     elif not st.session_state.get("chain"):
         st.error("Modele non disponible.")
+        logger.error("Chaine non disponible, impossible de repondre")
     else:
-        reponse_cache, similarite, index_cache = cache.trouver_question_similaire(question, topic, seuil=CACHE_SEUIL_SIMILARITE)
+        with etape("Recherche dans le cache"):
+            reponse_cache, similarite, index_cache = cache.trouver_question_similaire(question, topic, seuil=CACHE_SEUIL_SIMILARITE)
 
         if reponse_cache:
-            st.markdown(f"""
-            <div class="cache-box">
-                <strong>Reponse du cache</strong>
-                <br>
-                <span style="font-size:12px;color:#666;">
-                    Similarite avec une question precedente : {similarite:.2%}
-                </span>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(rendre_html(
+                "cache_box",
+                title="Reponse du cache",
+                similarite=f"{similarite:.2%}"
+            ), unsafe_allow_html=True)
 
-            st.markdown(f"""
-            <div class="reponse-box">
-                <strong>Reponse :</strong><br><br>
-                {reponse_cache}
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(rendre_html(
+                "response_box",
+                titre="Reponse",
+                contenu=reponse_cache
+            ), unsafe_allow_html=True)
 
             with st.expander("Voir la question originale"):
                 st.write(f"Question originale : {cache.cache['questions'][index_cache]}")
                 st.write(f"Date : {cache.cache['dates'][index_cache]}")
+
+            duree_totale = time.perf_counter() - debut_total
+            fin_total_h = horodatage()
+            logger.info(
+                f"TEMPS TOTAL REPONSE (cache) | debut={debut_total_h} | fin={fin_total_h} | "
+                f"duree={duree_totale:.2f}s"
+            )
+            st.caption(f"Temps total de reponse : {duree_totale:.2f}s")
         else:
             with st.spinner("Generation de la reponse..."):
                 try:
-                    question_enrichie = TOPICS[topic]["prefix"] + question
-                    reponse = st.session_state.chain.invoke({"query": question_enrichie})
-                    reponse_texte = reponse["result"]
+                    with etape("Traitement complet de la question (retrieval + LLM)"):
+                        question_enrichie = TOPICS[topic]["prefix"] + question
+                        reponse = st.session_state.chain.invoke({"query": question_enrichie})
+                        reponse_texte = reponse["result"]
 
                     cache.ajouter_question_reponse(question, reponse_texte, topic)
 
-                    st.markdown(f"""
-                    <div class="reponse-box">
-                        <strong>Reponse :</strong><br><br>
-                        {reponse_texte}
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(rendre_html(
+                        "response_box",
+                        titre="Reponse",
+                        contenu=reponse_texte
+                    ), unsafe_allow_html=True)
 
                     st.caption("Cette question/reponse a ete ajoutee au cache")
 
@@ -183,7 +217,7 @@ if envoyer:
                     st.markdown("### Chunks pertinents utilises")
                     st.caption(f"Seuil de distance: {CHUNKS_SEUIL_DISTANCE} | Maximum: {CHUNKS_MAX_AFFICHES} chunks")
 
-                    chunks = get_chunks_adaptatifs(
+                    chunks, nb_chunks_trouves = get_chunks_adaptatifs(
                         st.session_state.chain,
                         question,
                         seuil=CHUNKS_SEUIL_DISTANCE,
@@ -203,26 +237,27 @@ if envoyer:
 
                             distance_pourcent = (1 - chunk["distance"]) * 100
 
-                            st.markdown(f"""
-                            <div class="chunk-box">
-                                <div style="color:#666;font-size:12px;font-weight:bold;margin-bottom:4px;">
-                                    <strong>{chunk['numero']}.</strong> {chunk['source']} Page {chunk['page']}
-                                </div>
-                                <div style="display:flex;justify-content:space-between;font-size:12px;">
-                                    <span><strong>Distance:</strong> {chunk['distance']:.4f}</span>
-                                    <span><strong>Similarite:</strong> {chunk['similarite']:.4f}</span>
-                                    <span>{niveau}</span>
-                                </div>
-                                <div class="distance-bar">
-                                    <div class="distance-fill" style="width:{distance_pourcent:.1f}%;"></div>
-                                </div>
-                                <div style="color:#1A1A2E;font-size:14px;margin-top:4px;">
-                                    {chunk['contenu']}
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
+                            st.markdown(rendre_html(
+                                "chunk_box",
+                                numero=chunk["numero"],
+                                source=chunk["source"],
+                                page=chunk["page"],
+                                distance=f"{chunk['distance']:.4f}",
+                                similarite=f"{chunk['similarite']:.4f}",
+                                niveau=niveau,
+                                distance_pourcent=f"{distance_pourcent:.1f}",
+                                contenu=chunk["contenu"]
+                            ), unsafe_allow_html=True)
 
-                        st.caption(f"{len(chunks)} chunks utilises sur {len(st.session_state.chain.retriever.invoke(question))} trouves")
+                        st.caption(f"{len(chunks)} chunks utilises sur {nb_chunks_trouves} trouves")
+
+                    duree_totale = time.perf_counter() - debut_total
+                    fin_total_h = horodatage()
+                    logger.info(
+                        f"TEMPS TOTAL REPONSE (LLM) | debut={debut_total_h} | fin={fin_total_h} | "
+                        f"duree={duree_totale:.2f}s"
+                    )
+                    st.caption(f"Temps total de reponse : {duree_totale:.2f}s")
 
                 except Exception as e:
                     st.error(f"Erreur : {str(e)}")

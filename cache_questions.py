@@ -8,6 +8,7 @@ import numpy as np
 
 from config import CACHE_QUESTIONS, EMBEDDING_MODEL, CACHE_SEUIL_SIMILARITE
 from ollama_utils import OllamaEmbeddingsDirect
+from debug_utils import etape, logger
 
 
 class CacheQuestions:
@@ -35,50 +36,58 @@ class CacheQuestions:
         return self.embeddings
 
     def trouver_question_similaire(self, nouvelle_question, topic, seuil=CACHE_SEUIL_SIMILARITE):
+        logger.info(f"=== Recherche cache pour question : '{nouvelle_question[:60]}...' (topic={topic}) ===")
         if not self.cache["questions"]:
+            logger.debug("Cache vide, aucune comparaison possible")
             return None, 0, -1
 
-        embeddings = self.get_embeddings()
-        nouveau_vect = np.array(embeddings.embed_query(nouvelle_question))
-        norm = np.linalg.norm(nouveau_vect)
-        if norm > 0:
-            nouveau_vect = nouveau_vect / norm
+        with etape("Embedding de la question (pour cache)"):
+            embeddings = self.get_embeddings()
+            nouveau_vect = np.array(embeddings.embed_query(nouvelle_question))
+            norm = np.linalg.norm(nouveau_vect)
+            if norm > 0:
+                nouveau_vect = nouveau_vect / norm
 
         meilleure_similarite = 0
         meilleur_index = -1
 
-        for i in range(len(self.cache["questions"])):
-            if self.cache["topics"][i] != topic:
-                continue
+        with etape("Comparaison cosinus avec le cache", nb_entrees=len(self.cache["questions"])):
+            for i in range(len(self.cache["questions"])):
+                if self.cache["topics"][i] != topic:
+                    continue
 
-            if self.cache["embeddings"][i]:
-                ancien_vect = np.array(json.loads(self.cache["embeddings"][i]))
-                norm = np.linalg.norm(ancien_vect)
-                if norm > 0:
-                    ancien_vect = ancien_vect / norm
-                similarite = float(np.dot(nouveau_vect, ancien_vect))
+                if self.cache["embeddings"][i]:
+                    ancien_vect = np.array(json.loads(self.cache["embeddings"][i]))
+                    norm = np.linalg.norm(ancien_vect)
+                    if norm > 0:
+                        ancien_vect = ancien_vect / norm
+                    similarite = float(np.dot(nouveau_vect, ancien_vect))
 
-                if similarite > meilleure_similarite:
-                    meilleure_similarite = similarite
-                    meilleur_index = i
+                    if similarite > meilleure_similarite:
+                        meilleure_similarite = similarite
+                        meilleur_index = i
 
         if meilleure_similarite >= seuil:
+            logger.info(f"CACHE HIT (similarite={meilleure_similarite:.3f} >= seuil={seuil}) -> index {meilleur_index}")
             return self.cache["reponses"][meilleur_index], meilleure_similarite, meilleur_index
 
+        logger.info(f"CACHE MISS (meilleure similarite={meilleure_similarite:.3f} < seuil={seuil})")
         return None, meilleure_similarite, -1
 
     def ajouter_question_reponse(self, question, reponse, topic):
-        embeddings = self.get_embeddings()
-        vect = embeddings.embed_query(question)
-        vect_str = json.dumps(vect)
+        with etape("Ajout question/reponse au cache", topic=topic):
+            embeddings = self.get_embeddings()
+            vect = embeddings.embed_query(question)
+            vect_str = json.dumps(vect)
 
-        self.cache["questions"].append(question)
-        self.cache["reponses"].append(reponse)
-        self.cache["embeddings"].append(vect_str)
-        self.cache["dates"].append(datetime.now().isoformat())
-        self.cache["topics"].append(topic)
+            self.cache["questions"].append(question)
+            self.cache["reponses"].append(reponse)
+            self.cache["embeddings"].append(vect_str)
+            self.cache["dates"].append(datetime.now().isoformat())
+            self.cache["topics"].append(topic)
 
-        self.sauvegarder_cache()
+            self.sauvegarder_cache()
+        logger.info(f"Cache mis a jour : {len(self.cache['questions'])} question(s) au total")
 
     def get_stats(self):
         return {
