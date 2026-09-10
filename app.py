@@ -1,4 +1,4 @@
-"""Chat GCT - Assistant IA local (RAG) du Groupe Chimique Tunisien.
+"""ChatNS - Assistant IA local (RAG).
 
 Point d'entree Streamlit. Lancer avec :
     streamlit run app.py
@@ -16,6 +16,7 @@ import streamlit as st
 from config import (
     DOSSIER_BASE, FICHIER_FAISS_BASE, TOPICS,
     CACHE_SEUIL_SIMILARITE, CHUNKS_SEUIL_DISTANCE, CHUNKS_MAX_AFFICHES,
+    ADMIN_PASSWORD,
 )
 from ollama_utils import verifier_ollama
 from vectorstore import compter_pdf, charger_vecteur, ajouter_pdf
@@ -47,9 +48,15 @@ def rendre_html(nom, **variables):
     return bloc.safe_substitute(valeurs)
 
 # --- Configuration de la page ---
-st.set_page_config(page_title="Chat GCT", page_icon="factory", layout="wide")
+st.set_page_config(page_title="ChatNS", page_icon="factory", layout="wide")
 st.markdown(CSS, unsafe_allow_html=True)
 st.markdown(rendre_html("header"), unsafe_allow_html=True)
+
+# Le client peut consulter l'assistant sans compte; les actions sensibles
+# restent reservees a l'espace administrateur.
+if "role" not in st.session_state:
+    st.session_state.role = "client"
+is_admin = st.session_state.role == "admin"
 
 # --- Verification Ollama ---
 ollama_ok, ollama_err = verifier_ollama()
@@ -59,8 +66,23 @@ if not ollama_ok:
 
 # --- Sidebar ---
 with st.sidebar:
-    st.markdown("## Chat GCT")
-    st.markdown("Groupe Chimique Tunisien")
+    st.markdown("## ChatNS")
+    st.markdown("---")
+    st.markdown("### Espace utilisateur")
+    if is_admin:
+        st.success("Mode administrateur")
+        if st.button("Se deconnecter", use_container_width=True):
+            st.session_state.role = "client"
+            st.rerun()
+    else:
+        st.caption("Mode client")
+        mot_de_passe = st.text_input("Mot de passe administrateur", type="password")
+        if st.button("Ouvrir l'espace admin", use_container_width=True):
+            if mot_de_passe == ADMIN_PASSWORD:
+                st.session_state.role = "admin"
+                st.rerun()
+            else:
+                st.error("Mot de passe incorrect")
     st.markdown("---")
     st.markdown("### Topic")
     topic = st.selectbox("Topic", list(TOPICS.keys()), label_visibility="collapsed")
@@ -80,23 +102,25 @@ with st.sidebar:
     st.markdown("---")
     st.success("Donnees 100% locales\nAucun envoi vers le cloud")
     st.info("Modele : Mistral 7B\n\nEmbedding : nomic-embed-text\n\nCache : Questions/Reponses")
-    st.markdown("---")
 
-    col_clean, col_cache = st.columns(2)
-    with col_clean:
-        if st.button("Nettoyer index", use_container_width=True):
-            if os.path.exists(FICHIER_FAISS_BASE):
-                shutil.rmtree(FICHIER_FAISS_BASE)
-            for k in ["vectorstore", "chain", "topic_courant"]:
-                st.session_state.pop(k, None)
-            st.success("Index nettoye !")
-            st.rerun()
-    with col_cache:
-        if st.button("Vider cache", use_container_width=True):
-            cache.cache = {"questions": [], "reponses": [], "embeddings": [], "dates": [], "topics": []}
-            cache.sauvegarder_cache()
-            st.success("Cache vide !")
-            st.rerun()
+    if is_admin:
+        st.markdown("---")
+        st.markdown("### Administration")
+        col_clean, col_cache = st.columns(2)
+        with col_clean:
+            if st.button("Nettoyer index", use_container_width=True):
+                if os.path.exists(FICHIER_FAISS_BASE):
+                    shutil.rmtree(FICHIER_FAISS_BASE)
+                for k in ["vectorstore", "chain", "topic_courant"]:
+                    st.session_state.pop(k, None)
+                st.success("Index nettoye !")
+                st.rerun()
+        with col_cache:
+            if st.button("Vider cache", use_container_width=True):
+                cache.cache = {"questions": [], "reponses": [], "embeddings": [], "dates": [], "topics": []}
+                cache.sauvegarder_cache()
+                st.success("Cache vide !")
+                st.rerun()
 
 # --- Zone principale : topic + upload PDF ---
 col1, col2 = st.columns([1, 1])
@@ -105,25 +129,26 @@ with col1:
     st.markdown(f"### Topic : {topic}")
     st.caption(f"Dossier : {os.path.join(DOSSIER_BASE, TOPICS[topic]['dossier'])}")
 
-with col2:
-    st.markdown('<div class="section-title section-title-upload">Ajouter un PDF</div>', unsafe_allow_html=True)
-    pdf = st.file_uploader("Upload PDF", type="pdf", label_visibility="collapsed", key="pdf_uploader")
+if is_admin:
+    with col2:
+        st.markdown('<div class="section-title section-title-upload">Ajouter un PDF</div>', unsafe_allow_html=True)
+        pdf = st.file_uploader("Upload PDF", type="pdf", label_visibility="collapsed", key="pdf_uploader")
 
-    if pdf is not None:
-        fichier_id = f"{pdf.name}_{pdf.size}"
-        if st.session_state.get("dernier_fichier") != fichier_id:
-            with st.spinner("Indexation avec nettoyage avance..."):
-                try:
-                    ajouter_pdf(pdf, topic)
-                    st.session_state.dernier_fichier = fichier_id
-                    for k in ["vectorstore", "chain", "topic_courant"]:
-                        st.session_state.pop(k, None)
-                    st.success(f"{pdf.name} ajoute dans {topic} !")
-                except Exception as e:
-                    st.error(f"Erreur : {e}")
-                    st.session_state.dernier_fichier = fichier_id
-        else:
-            st.info(f"{pdf.name} deja indexe.")
+        if pdf is not None:
+            fichier_id = f"{pdf.name}_{pdf.size}"
+            if st.session_state.get("dernier_fichier") != fichier_id:
+                with st.spinner("Indexation avec nettoyage avance..."):
+                    try:
+                        ajouter_pdf(pdf, topic)
+                        st.session_state.dernier_fichier = fichier_id
+                        for k in ["vectorstore", "chain", "topic_courant"]:
+                            st.session_state.pop(k, None)
+                        st.success(f"{pdf.name} ajoute dans {topic} !")
+                    except Exception as e:
+                        st.error(f"Erreur : {e}")
+                        st.session_state.dernier_fichier = fichier_id
+            else:
+                st.info(f"{pdf.name} deja indexe.")
 
 st.markdown("---")
 

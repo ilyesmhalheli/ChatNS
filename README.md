@@ -174,6 +174,12 @@ Ouvrez votre navigateur sur : **http://localhost:8501**
 4. Posez vos questions en français dans le champ de texte
 5. L'assistant cherche dans vos documents et génère une réponse, avec les chunks sources affichés en dessous
 
+### Espaces client et administrateur
+
+- **Client** : accès à la sélection des topics et aux questions/réponses.
+- **Administrateur** : saisissez le mot de passe dans la barre latérale pour ajouter des PDF, nettoyer un index ou vider le cache.
+- Le mot de passe se configure avec `ADMIN_PASSWORD` dans `.env` (la valeur par défaut locale est `admin123`).
+
 **Exemples de questions :**
 - *"Quelles sont les procédures de sécurité ?"*
 - *"Qui contacter en cas de panne ?"*

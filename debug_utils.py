@@ -23,7 +23,7 @@ from contextlib import contextmanager
 
 DEBUG_LEVEL = os.getenv("DEBUG_LEVEL", "DEBUG")
 
-logger = logging.getLogger("chat_gct")
+logger = logging.getLogger("chatns")
 logger.setLevel(DEBUG_LEVEL)
 
 if not logger.handlers:

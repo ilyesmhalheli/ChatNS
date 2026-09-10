@@ -41,7 +41,7 @@ def nettoyer_texte_avance(texte):
     texte = re.sub(r'[-]{2,}', '', texte)
     texte = re.sub(r'[|]{2,}', ' ', texte)
 
-    mots_majuscules = ['gct', 'tuneps', 'cae', 'cme', 'cra', 'dar', 'dca']
+    mots_majuscules = ['tuneps', 'cae', 'cme', 'cra', 'dar', 'dca']
     texte = texte.lower()
     for mot in mots_majuscules:
         texte = texte.replace(mot, mot.upper())

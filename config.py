@@ -1,4 +1,4 @@
-"""Configuration centrale de Chat GCT.
+"""Configuration centrale de ChatNS.
 
 TOUTES les constantes de l'application (modeles Ollama, chemins, tailles de
 chunks, seuils, prompt...) sont definies ici. Pour les modifier, deux
@@ -46,6 +46,9 @@ CACHE_QUESTIONS = os.path.join(BASE_DIR, _get_str("FICHIER_CACHE", "cache_questi
 # URL du serveur Ollama
 OLLAMA_URL = _get_str("OLLAMA_URL", "http://localhost:11434")
 
+# Mot de passe de l'espace administrateur (a remplacer dans .env en production)
+ADMIN_PASSWORD = _get_str("ADMIN_PASSWORD", "admin123")
+
 # Modele de generation (LLM) utilise pour repondre aux questions.
 # Exemples : "mistral", "llama3", "qwen2.5", "gemma2"...
 LLM_MODEL = _get_str("LLM_MODEL", "mistral")
@@ -88,7 +91,7 @@ CACHE_SEUIL_SIMILARITE = _get_float("CACHE_SEUIL_SIMILARITE", 0.85)
 # ============================================================
 # PROMPT DU MODELE
 # ============================================================
-PROMPT_TEMPLATE = _get_str("PROMPT_TEMPLATE", """Tu es Chat GCT, assistant intelligent du Groupe Chimique Tunisien.
+PROMPT_TEMPLATE = _get_str("PROMPT_TEMPLATE", """Tu es ChatNS, un assistant intelligent.
 
 REGLES STRICTES A RESPECTER IMPERATIVEMENT :
 6. Quand le contexte mentionne un chiffre, un montant ou un seuil , verifie s'il est associe a UNE SEULE entite/commission ou si le contexte suggere qu'il existe plusieurs paliers/seuils geres par des entites differentes (par exemple une hierarchie du type: entite A < seuil 1, entite B entre seuil 1 et seuil 2, entite C >= seuil 2).
@@ -109,19 +112,19 @@ Reponse en francais (strictement basee sur le contexte ci-dessus, en respectant 
 TOPICS = {
     "Achats": {
         "dossier": "Achats",
-        "prefix": "En te basant sur le manuel des achats du GCT : ",
+        "prefix": "En te basant sur les documents d'achats : ",
     },
     "RH": {
         "dossier": "RH",
-        "prefix": "En te basant sur les documents RH du GCT : ",
+        "prefix": "En te basant sur les documents RH : ",
     },
     "Finance": {
         "dossier": "Finance",
-        "prefix": "En te basant sur les documents financiers du GCT : ",
+        "prefix": "En te basant sur les documents financiers : ",
     },
     "Technique": {
         "dossier": "Technique",
-        "prefix": "En te basant sur les documents techniques du GCT : ",
+        "prefix": "En te basant sur les documents techniques : ",
     },
     "General": {
         "dossier": "General",
