@@ -1,11 +1,11 @@
-# 🤖 Assistant IA Local — Groupe Chimique Tunisien (GCT)
+# 🤖 Assistant IA Local — Assistant IA RAG pour Entreprises
 
-> ⚠️ **CONFIDENTIEL** — Ce dépôt et son contenu sont réservés à un usage interne au Groupe Chimique Tunisien (GCT). Les documents traités par cet assistant (manuels, procédures, données internes) sont confidentiels et ne doivent en aucun cas être partagés, publiés, ou rendus accessibles en dehors du GCT. Voir la section [Confidentialité & Sécurité](#-confidentialité--sécurité) pour le détail des mesures en place.
+> ⚠️ **CONFIDENTIEL** — Les documents traités par cet assistant peuvent contenir des informations internes et confidentielles. Leur accès et leur utilisation doivent être limités aux personnes autorisées par l'entreprise. Voir la section [Confidentialité & Sécurité](#-confidentialité--sécurité) pour le détail des mesures en place.
 
 ## 📋 Description
-Ce projet est un assistant IA local développé dans le cadre d'un stage au **Groupe Chimique Tunisien (GCT)**. Il permet aux employés de poser des questions en langage naturel sur des documents internes (PDF), et d'obtenir des réponses précises générées par un modèle de langage local.
+Ce projet est un assistant IA local destiné aux entreprises. Il permet aux employés de poser des questions en langage naturel sur des documents internes (PDF), et d'obtenir des réponses générées par un modèle de langage local.
 
-**Avantage principal :** toutes les données restent sur le serveur local — aucun document confidentiel n'est envoyé vers un cloud externe.
+**Avantage principal :** toutes les données peuvent rester sur l'infrastructure locale de l'entreprise — aucun document confidentiel n'est envoyé vers un cloud externe.
 
 ---
 
@@ -73,7 +73,7 @@ Chaque étape du pipeline est chronométrée et journalisée (voir `debug_utils.
 Le projet est organisé en modules, chacun avec une responsabilité unique :
 
 ```
-chat-gct/
+assistant-ia-entreprise/
 ├── app.py                     # Point d'entree Streamlit (interface uniquement)
 ├── config.py                  # Configuration centrale : modeles, chemins, seuils, prompt
 ├── debug_utils.py             # Logging detaille + chronometrage de chaque etape du pipeline
@@ -133,12 +133,12 @@ ollama pull nomic-embed-text
 
 ### 4. Ajouter vos documents PDF
 
-Créez un dossier `documents/` à la racine du projet et placez-y vos fichiers PDF, organisés par thème (`Achats`, `RH`, `Finance`, `Technique`, `General`) :
+Créez un dossier `documents/` à la racine du projet et placez-y vos fichiers PDF, organisés par service ou thème (`Achats`, `RH`, `Finance`, `Technique`, `Production`, `General`) :
 
 ```
-chat-gct/
+assistant-ia-entreprise/
 └── documents/
-    └── Achats/
+    └── Finance/
         ├── document1.pdf
         └── document2.pdf
 ```
@@ -238,14 +238,14 @@ Principales options disponibles (voir `.env.example` pour la liste complète) :
 
 ## 🔒 Confidentialité & Sécurité
 
-**Les données du GCT traitées par cet assistant sont confidentielles.** Les mesures suivantes sont en place pour les protéger :
+**Les données traitées par cet assistant peuvent être confidentielles et doivent être protégées conformément aux règles de l'entreprise.** Les mesures suivantes sont en place pour les protéger :
 
 - **Aucune donnée n'est envoyée sur internet** — Ollama exécute les modèles entièrement en local, aucun document ni aucune question n'est transmise à un service externe ou à un cloud
 - Le dossier `documents/`, la base vectorielle `faiss_documents/` (qui contient une copie du texte extrait des documents), le fichier `cache_questions.json` (qui mémorise les questions/réponses) et le fichier `.env` (configuration locale) sont **tous exclus du dépôt Git** via `.gitignore` — aucun contenu confidentiel n'est versionné ni poussé sur GitHub
-- Le dépôt GitHub doit rester **privé** (accès restreint aux personnes autorisées du GCT) — ne jamais le rendre public
+- Le dépôt GitHub doit rester **privé** si le projet contient de la configuration interne ou du code sensible (accès restreint aux personnes autorisées) — ne jamais le rendre public
 - Le système fonctionne sans connexion internet une fois les modèles téléchargés
 - Aucun nom d'employé, chemin système, ou adresse réseau interne n'est présent dans ce dépôt
-- Toute personne clonant ce dépôt doit fournir ses propres documents dans `documents/` — aucun document réel du GCT n'est inclus dans le code source
+- Toute entreprise clonant ce dépôt doit fournir ses propres documents dans `documents/` — aucun document réel d'une entreprise n'est inclus dans le code source
 
 ---
 
@@ -262,13 +262,13 @@ Principales options disponibles (voir `.env.example` pour la liste complète) :
 
 ## 👤 Auteur
 
-**Stagiaire GCT — 2026**
+**Projet académique / professionnel — 2026**
 École Nationale des Sciences de l'Informatique (ENSI)
-Projet : Développement d'un Assistant IA Local pour le Groupe Chimique Tunisien
+Projet : Développement d'un Assistant IA Local Généralisé pour les Entreprises
 
 ---
 
 ## 📄 Licence
 
 Projet développé dans le cadre d'un stage interne.
-Usage réservé au Groupe Chimique Tunisien (GCT).
+Usage destiné aux entreprises et organisations selon leur politique interne de sécurité et de confidentialité.
